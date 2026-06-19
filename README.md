@@ -1,6 +1,6 @@
 # 🏦 Banking Lakehouse on Databricks
 
-A production-grade Banking Lakehouse framework built on Databricks Free Edition — ingesting 2.26M Lending Club consumer loans and 962K HMDA California mortgage applications through a full Bronze/Silver/Gold medallion architecture with AI-powered risk narrative generation.
+A production-grade Banking Lakehouse framework built on Databricks Free Edition — ingesting 2.26M Lending Club consumer loans and 962K HMDA California mortgage applications through a full Bronze/Silver/Gold medallion architecture with AI-powered risk narrative generation and Microsoft Fabric integration.
 
 ---
 
@@ -14,6 +14,7 @@ A production-grade Banking Lakehouse framework built on Databricks Free Edition 
 - Structured Streaming with AvailableNow trigger
 - Prompt versioning and API cost tracking
 - HMDA fair lending compliance pattern
+- **Microsoft Fabric integration — Databricks Gold tables queried via T-SQL SQL Analytics endpoint**
 
 ---
 
@@ -36,6 +37,10 @@ Source Data (ADLS / Volume Upload)
          |
          v
    AI/BI Dashboard       — Banking_Lakehouse_Risk_Dashboard (Databricks Genie)
+         |
+         v
+   Microsoft Fabric      — Gold tables exported to Parquet → Fabric Lakehouse
+                           Queried via SQL Analytics endpoint (T-SQL)
 ```
 
 ---
@@ -56,6 +61,7 @@ Banking-Lakehouse-Databricks/
 ├── 09_Gold_HMDA.py                       # HMDA Gold: denial rates, fair lending signals
 ├── 10_Prompt_Versioning_Cost_Tracking.py # Claude API prompt versioning + token cost tracking
 ├── 11_CDC_Delta_MERGE.py                 # Change Data Capture with Delta MERGE upsert
+├── 12_Export_To_Fabric.py                # Export Gold tables to Parquet → Microsoft Fabric
 │
 ├── LICENSE                               # MIT License
 └── README.md
@@ -84,6 +90,43 @@ Bronze_HMDA        ──→ Silver_HMDA        ──→ Gold_HMDA
 - 7 tasks, two parallel chains
 - Full pipeline completes in ~2 min 39 sec on 2.26M rows
 - Validated: Bronze 2,260,701 rows → Silver 2,257,918 rows (2,783 bad rows dropped) → Gold 48 segments
+
+---
+
+## 🔗 Microsoft Fabric Integration (Notebook 12)
+
+**POC Complete — June 19, 2026**
+
+Databricks Gold tables exported to Parquet and ingested into Microsoft Fabric Lakehouse, queried via T-SQL SQL Analytics endpoint — zero Spark required.
+
+| Step | Details |
+|------|---------|
+| Source | Databricks Free Edition — workspace.gold.* |
+| Export | Parquet via `coalesce(1).write.parquet()` |
+| Target | Microsoft Fabric — Banking_Lakehouse_Fabric |
+| Workspace | Banking_Lakehouse_POC (Fabric Trial, East US) |
+| Query | SQL Analytics endpoint (T-SQL) |
+
+**Validation Query Results:**
+
+```sql
+SELECT grade, risk_tier, 
+       SUM(loan_count) as total_loans,
+       SUM(total_loan_volume) as total_volume
+FROM dbo.lending_club_risk
+GROUP BY grade, risk_tier
+ORDER BY grade
+```
+
+| Grade | Risk Tier | Total Loans | Total Volume |
+|-------|-----------|-------------|--------------|
+| A | Low Risk | 432,929 | $6.3B |
+| B | Low Risk | 663,202 | $9.4B |
+| C | Medium Risk | 649,424 | $9.7B |
+| D | Medium Risk | 323,733 | $5.1B |
+| E | High Risk | 135,103 | $2.4B |
+| F | High Risk | 41,553 | $796M |
+| G | High Risk | 11,974 | $245M |
 
 ---
 
@@ -116,6 +159,7 @@ Features:
 | Cost Tracking | 10 | Token usage per prompt version |
 | Fair Lending Signal | 09 | HMDA denial rate analysis by race/income |
 | Delta Time Travel | 02, 06 | VERSION AS OF for audit queries |
+| Fabric Integration | 12 | Parquet export → Fabric SQL Analytics endpoint |
 
 ---
 
@@ -127,6 +171,7 @@ Features:
 | CA home improvement denial rate | 55% | HMDA Gold layer |
 | Grade A defaults despite low DTI | $28M | Lending Club Gold layer |
 | Bad rows filtered at Silver | 2,783 | Silver validation |
+| Total loan portfolio analyzed | $33.9B | Fabric SQL Analytics |
 
 ---
 
@@ -137,6 +182,7 @@ Features:
 - Anthropic API key (for Notebook 04 and 10)
 - Lending Club dataset (Kaggle: `accepted_2007_to_2018Q4.csv.gz`)
 - HMDA California 2023 dataset (CFPB: `state_CA.csv`)
+- Microsoft Fabric trial account (for Notebook 12)
 
 ### Setup
 1. Upload datasets to Unity Catalog Volume: `/Volumes/workspace/bronze/raw_uploads/`
@@ -147,21 +193,7 @@ Features:
    api_key = os.environ.get("ANTHROPIC_API_KEY")
    ```
 4. Run notebooks in order: 01 → 02 → 03 → 04 → 05 → 06 → 09
-5. Or create a Lakeflow Job to orchestrate the full pipeline
-
-### Catalog Structure (Free Edition)
-```
-workspace/
-├── bronze/
-│   ├── lending_club_raw
-│   └── hmda_raw
-├── silver/
-│   ├── lending_club_silver
-│   └── hmda_silver
-└── gold/
-    ├── lending_club_gold
-    └── hmda_gold
-```
+5. Run Notebook 12 to export to Microsoft Fabric
 
 ---
 
