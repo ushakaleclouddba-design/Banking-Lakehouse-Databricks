@@ -129,6 +129,20 @@ ORDER BY grade
 | G | High Risk | 11,974 | $245M |
 
 ---
+## 🔐 Unity Catalog Governance POC (June 23, 2026)
+
+**POC Complete — June 23, 2026**
+
+Validated whether Unity Catalog RLS and column masking policies propagate and enforce when Gold Delta tables are queried via Microsoft Fabric SQL Analytics endpoint.
+
+| Test | Result |
+|------|--------|
+| UC RLS via Fabric SQL Analytics endpoint (OneLake shortcut) | ❌ Bypassed — all 10 rows visible, SSN partially exposed |
+| Databricks Materialized Views via OneLake shortcut | ❌ Not accessible — `_enzyme_log` metadata not recognized by Fabric |
+
+**Key Finding:** Fabric reads raw parquet directly from ADLS Gen2 and bypasses the Databricks compute engine entirely. Unity Catalog policies only enforce when queries go through Databricks. For regulated industries — banking, healthcare, financial services — governance controls must be duplicated in both platforms.
+
+**Documentation:** `Appendix_UC_UnityCatalog_Enablement_Playbook_v4.docx`
 
 ## 🧠 AI Risk Narratives (Notebook 04)
 
